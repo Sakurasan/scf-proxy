@@ -19,7 +19,7 @@ func main() {
 	cloudfunction.Start(server)
 }
 func init() {
-	fmt.Println("scf-proxy-client")
+	fmt.Println("scf-proxy-server")
 	log.SetFormatter(new(Formatter))
 }
 func server(ctx context.Context, req events.APIGatewayRequest) (resp events.APIGatewayResponse, err error) {

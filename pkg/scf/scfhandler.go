@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -19,18 +18,17 @@ import (
 )
 
 func Handler(ctx context.Context, reqOrigin events.APIGatewayRequest) (resp events.APIGatewayResponse) {
-	// hello()
 	var reqEvent = new(DefineEvent)
 	if err := json.Unmarshal([]byte(reqOrigin.Body), reqEvent); err != nil {
-		return handleErr(reqOrigin, err.Error())
+		return handlerErr(reqOrigin, err.Error())
 	}
 	proxyresp, err := forworld(reqEvent)
 	if err != nil {
-		return handleErr(reqOrigin, err.Error())
+		return handlerErr(reqOrigin, err.Error())
 	}
 	body, err := json.Marshal(proxyresp)
 	if err != nil {
-		return handleErr(reqOrigin, err.Error())
+		return handlerErr(reqOrigin, err.Error())
 	}
 	resp = events.APIGatewayResponse{
 		IsBase64Encoded: false,
@@ -39,13 +37,6 @@ func Handler(ctx context.Context, reqOrigin events.APIGatewayRequest) (resp even
 		Body:            string(body),
 	}
 	return
-}
-
-func hello() {
-	rsp, _ := http.Get("http://ip.sb")
-	bytersp, _ := ioutil.ReadAll(rsp.Body)
-	fmt.Println(string(bytersp))
-	fmt.Println("-------------------------")
 }
 
 func forworld(reqevent *DefineEvent) (*RespEvent, error) {
@@ -88,7 +79,7 @@ func forworld(reqevent *DefineEvent) (*RespEvent, error) {
 }
 
 // handleErr 处理错误
-func handleErr(reqOrigin events.APIGatewayRequest, errString string) (resp events.APIGatewayResponse) {
+func handlerErr(reqOrigin events.APIGatewayRequest, errString string) (resp events.APIGatewayResponse) {
 	// log
 	log.Printf("[出现错误] \n//err %v \n//req %v \n========== \n", errString, reqOrigin)
 
