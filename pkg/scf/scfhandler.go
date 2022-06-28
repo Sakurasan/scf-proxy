@@ -7,18 +7,17 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
+	"github.com/tencentyun/scf-go-lib/events"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
-
-	log "github.com/sirupsen/logrus"
-
-	"github.com/tencentyun/scf-go-lib/events"
 )
 
 func Handler(ctx context.Context, reqOrigin events.APIGatewayRequest) (resp events.APIGatewayResponse) {
 	var reqEvent = new(DefineEvent)
+	//b64dreqOrigin, _ := base64.StdEncoding.DecodeString(reqOrigin.Body)
 	if err := json.Unmarshal([]byte(reqOrigin.Body), reqEvent); err != nil {
 		return handlerErr(reqOrigin, err.Error())
 	}
@@ -55,12 +54,18 @@ func forworld(reqevent *DefineEvent) (*RespEvent, error) {
 	for k, v := range originreq.Header {
 		req.Header.Set(k, v[0])
 	}
+	// EOF
+	req.Close = true
 	tr := &http.Transport{
 		Dial: (&net.Dialer{
 			//LocalAddr: localAddr,
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).Dial,
+		//DialContext: (&net.Dialer{
+		//	Timeout:   30 * time.Second,
+		//	KeepAlive: 30 * time.Second,
+		//}).DialContext,
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := http.Client{Transport: tr, Timeout: 60 * time.Second}
@@ -72,13 +77,25 @@ func forworld(reqevent *DefineEvent) (*RespEvent, error) {
 	defer resp.Body.Close()
 
 	byteresp, _ := ioutil.ReadAll(resp.Body)
-	respvent.Data = base64.StdEncoding.EncodeToString(byteresp)
+	byterespHeaders, _ := json.Marshal(resp.Header)
+	respHeaders := base64.StdEncoding.EncodeToString(byterespHeaders)
+	//响应headers
+	//{"Accept-Ranges":["bytes"],
+	//"Content-Length":["573"],
+	//"Content-Type":["text/html; charset=utf-8"],
+	//"Date":["Mon, 27 Jun 2022 02:56:52 GMT"],
+	//"Etag":["\"61419ca8-23d\""],
+	//"Last-Modified":["Wed, 15 Sep 2021 07:11:36 GMT"],
+	//"Server":["nginx/1.20.1"]}
+	respBoby := base64.StdEncoding.EncodeToString(byteresp)
+	respvent.Data = respHeaders + "^" + respBoby
+	//respvent.Data = base64.StdEncoding.EncodeToString(byteresp)
 	respvent.Status = true
 
 	return respvent, nil
 }
 
-// handleErr 处理错误
+//handleErr 处理错误
 func handlerErr(reqOrigin events.APIGatewayRequest, errString string) (resp events.APIGatewayResponse) {
 	// log
 	log.Printf("[出现错误] \n//err %v \n//req %v \n========== \n", errString, reqOrigin)

@@ -2,19 +2,20 @@ package main
 
 import (
 	"crypto/tls"
-	"flag"
-	"fmt"
-	"log"
+	"github.com/chroblert/jlog"
+	"golang.org/x/net/http2"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"scf-proxy/pkg/mitm"
 	"scf-proxy/pkg/scf"
+	"scf-proxy/pkg/viper"
 	"sync"
 	"time"
 )
 
 const (
-	HTTP_ADDR         = "127.0.0.1:8080"
+	//HTTP_ADDR         = "127.0.0.1:8080"
 	SESSIONS_TO_CACHE = 10000
 )
 
@@ -24,14 +25,20 @@ var (
 )
 
 func init() {
-	flag.StringVar(&clientPort, "p", "8080", "scf-proxy 客户端端口")
-	flag.StringVar(&scf.ScfApiProxyUrl, "scfurl", "", "scf-proxy 服务端地址")
-	flag.Parse()
-	if scf.ScfApiProxyUrl == "" {
-		panic("scf-proxy 服务端地址为空")
-	}
-	fmt.Println(scf.ScfApiProxyUrl)
-
+	_ = jlog.SetLogFullPath("logs/client.log", 0755, 0755)
+	jlog.SetStoreToFile(true)
+	jlog.SetMaxSizePerLogFile("10MB")
+	jlog.SetMaxStoreDays(30)
+	jlog.SetLogCount(30)
+	jlog.IsIniCreateNewLog(true)
+	jlog.SetVerbose(true)
+	//flag.StringVar(&clientPort, "p", "1080", "scf-proxy 客户端端口")
+	//flag.StringVar(&scf.ScfApiProxyUrl, "scfurl", "", "scf-proxy 服务端地址")
+	//flag.Parse()
+	//if scf.ScfApiProxyUrl == "" {
+	//	panic("scf-proxy 服务端地址为空")
+	//}
+	scf.ScfApiProxyUrl, clientPort = viper.YamlConfig()
 }
 
 func main() {
@@ -39,8 +46,10 @@ func main() {
 	runHTTPServer()
 	// Uncomment the below line to keep the server running
 	exampleWg.Wait()
+	//defer jlog.Flush()
 
 	// Output:
+
 }
 
 func runHTTPServer() {
@@ -66,20 +75,36 @@ func runHTTPServer() {
 
 	rp := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			log.Printf("Processing request to: %s", req.URL)
+			jlog.Infof("Processing request to: %s", req.URL)
 		},
-		Transport: &http.Transport{
+		//Transport: &http.Transport{
+		//	//AllowHTTP: true,
+		//	TLSClientConfig: &tls.Config{
+		//		// Use a TLS session cache to minimize TLS connection establishment
+		//		// Requires Go 1.3+
+		//		ClientSessionCache: tls.NewLRUClientSessionCache(SESSIONS_TO_CACHE),
+		//	},
+		//	//DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+		//	//	return net.Dial(network, addr)
+		//	//},
+		//},
+		Transport: &http2.Transport{
+			AllowHTTP: true,
 			TLSClientConfig: &tls.Config{
 				// Use a TLS session cache to minimize TLS connection establishment
 				// Requires Go 1.3+
 				ClientSessionCache: tls.NewLRUClientSessionCache(SESSIONS_TO_CACHE),
 			},
+			DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
+				return net.Dial(netw, addr)
+			},
 		},
+		FlushInterval: -1,
 	}
 
 	handler, err := mitm.Wrap(rp, cryptoConfig)
 	if err != nil {
-		log.Fatalf("Unable to wrap reverse proxy: %s", err)
+		jlog.Fatalf("Unable to wrap reverse proxy: %s", err)
 	}
 
 	server := &http.Server{
@@ -88,14 +113,15 @@ func runHTTPServer() {
 		ReadTimeout:  1 * time.Minute,
 		WriteTimeout: 1 * time.Minute,
 	}
-
+	_ = http2.ConfigureServer(server, nil)
 	go func() {
-		log.Printf("About to start HTTP proxy at :%s", clientPort)
+		jlog.Infof("About to start HTTP proxy at :%s\n", clientPort)
 		if err := server.ListenAndServe(); err != nil {
-			log.Fatalf("Unable to start HTTP proxy: %s", err)
+			jlog.Fatalf("Unable to start HTTP proxy: %s", err)
 		}
 		exampleWg.Done()
 	}()
 
 	return
+	//}
 }
