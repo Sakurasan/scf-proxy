@@ -50,6 +50,12 @@ func forworld(reqevent *DefineEvent) (*RespEvent, error) {
 	if err != nil {
 		return nil, err
 	}
+	//log.Println("url:", originreq.RequestURI)
+	//log.Println("url1:", originreq)
+	//log.Println("url2:", originreq.URL)
+	//if originreq.RequestURI == "/" {
+	//	originreq.RequestURI = originreq.Proto
+	//}
 	req, _ := http.NewRequest(originreq.Method, originreq.RequestURI, originreq.Body)
 	for k, v := range originreq.Header {
 		req.Header.Set(k, v[0])

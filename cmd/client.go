@@ -32,12 +32,6 @@ func init() {
 	jlog.SetLogCount(30)
 	jlog.IsIniCreateNewLog(true)
 	jlog.SetVerbose(true)
-	//flag.StringVar(&clientPort, "p", "1080", "scf-proxy 客户端端口")
-	//flag.StringVar(&scf.ScfApiProxyUrl, "scfurl", "", "scf-proxy 服务端地址")
-	//flag.Parse()
-	//if scf.ScfApiProxyUrl == "" {
-	//	panic("scf-proxy 服务端地址为空")
-	//}
 	scf.ScfApiProxyUrl, clientPort = viper.YamlConfig()
 }
 

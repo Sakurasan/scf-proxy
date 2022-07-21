@@ -90,6 +90,7 @@ func (wrapper *HandlerWrapper) intercept(resp http.ResponseWriter, req *http.Req
 	listener := &mitmListener{tlsConnIn}
 
 	handler := http.HandlerFunc(func(resp2 http.ResponseWriter, req2 *http.Request) {
+		//req2.ProtoMajor
 		req2.URL.Scheme = "https"
 		req2.URL.Host = req2.Host
 		req2.RequestURI = req2.URL.String()
