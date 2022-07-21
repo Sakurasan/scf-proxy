@@ -10,5 +10,5 @@ type DefineEvent struct {
 type RespEvent struct {
 	Status bool   `json:"status"` // 请求是否正常
 	Error  string `json:"error"`  // 错误信息
-	Data   string `json:"data"`   // HTTP 响应原始报文, base64
+	Data   string `json:"data"`   // HTTP 响应原始头+报文, base64^base64
 }

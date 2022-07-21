@@ -3,13 +3,15 @@ package mitm
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/chroblert/jlog"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"io"
-	"log"
 	"net/http"
-	"net/http/httputil"
 	"scf-proxy/pkg/scf"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -30,9 +32,14 @@ type HandlerWrapper struct {
 }
 
 func Wrap(handler http.Handler, cryptoConf *CryptoConfig) (*HandlerWrapper, error) {
+	h2s := &http2.Server{
+		IdleTimeout: time.Second * 60,
+	}
 	wrapper := &HandlerWrapper{
-		cryptoConf:   cryptoConf,
-		wrapped:      handler,
+		cryptoConf: cryptoConf,
+		//wrapped:      handler,
+		//http/2 支持
+		wrapped:      h2c.NewHandler(handler, h2s),
 		dynamicCerts: NewCache(),
 	}
 	err := wrapper.initCrypto()
@@ -48,8 +55,9 @@ func (wrapper *HandlerWrapper) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		wrapper.intercept(resp, req)
 	} else {
 		// wrapper.wrapped.ServeHTTP(resp, req)
-		reqdump, _ := httputil.DumpRequest(req, true)
-		fmt.Println("dump req:", string(reqdump))
+		//reqdump, _ := httputil.DumpRequest(req, true)
+		//fmt.Println("dump req:", string(reqdump))
+		//jlog.Info(string(reqdump))
 		scf.HandlerHttp(resp, req)
 	}
 }
@@ -73,6 +81,8 @@ func (wrapper *HandlerWrapper) intercept(resp http.ResponseWriter, req *http.Req
 		return
 	}
 	tlsConfig := makeConfig(wrapper.cryptoConf.ServerTLSConfig)
+	//HTTP/2 支持
+	tlsConfig.NextProtos = []string{"h2"}
 
 	tlsConfig.Certificates = []tls.Certificate{*cert}
 	tlsConnIn := tls.Server(connIn, tlsConfig)
@@ -80,6 +90,7 @@ func (wrapper *HandlerWrapper) intercept(resp http.ResponseWriter, req *http.Req
 	listener := &mitmListener{tlsConnIn}
 
 	handler := http.HandlerFunc(func(resp2 http.ResponseWriter, req2 *http.Request) {
+		//req2.ProtoMajor
 		req2.URL.Scheme = "https"
 		req2.URL.Host = req2.Host
 		req2.RequestURI = req2.URL.String()
@@ -91,7 +102,7 @@ func (wrapper *HandlerWrapper) intercept(resp http.ResponseWriter, req *http.Req
 	go func() {
 		err = http.Serve(listener, handler)
 		if err != nil && err != io.EOF {
-			log.Printf("Error serving mitm'ed connection: %s", err)
+			jlog.Printf("Error serving mitm'ed connection: %s", err)
 		}
 	}()
 
@@ -116,7 +127,7 @@ func hostIncludingPort(req *http.Request) (host string) {
 }
 
 func respBadGateway(resp http.ResponseWriter, msg string) {
-	log.Println(msg)
+	jlog.Error(msg)
 	resp.WriteHeader(502)
 	resp.Write([]byte(msg))
 }
