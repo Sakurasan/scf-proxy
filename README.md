@@ -2,6 +2,13 @@
 
 白嫖云函数，构建自己的代理服务
 
+基于https://github.com/Sakurasan/scf-proxy修改
+
+## 更新
+1. 增加http/2协议转发\
+需关闭ALPN，例如：Firefox about:config security.ssl.enable_alpn=false
+2. 支持浏览器代理
+3. 原有的命令行方式改为yaml配置文件
 ## 快速食用🍰
 ```
 sh build.sh
